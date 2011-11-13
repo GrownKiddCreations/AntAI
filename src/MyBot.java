@@ -1,4 +1,5 @@
 import java.io.IOException;
+import java.io.ObjectInputStream.GetField;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -14,6 +15,7 @@ import java.util.TreeSet;
  */
 public class MyBot extends Bot 
 {
+	private Set<Tile> map = new HashSet<Tile>();
 
 	/**
 	 * Main method executed by the game engine for starting the bot.
@@ -29,16 +31,18 @@ public class MyBot extends Bot
 
 	//initiate some variables
 	private Map<Tile,Tile> orders = new HashMap<Tile, Tile>();//set of orders given to prevent ants moving to same tile
+	private Map<Tile,Tile> pastOrders = new HashMap<Tile, Tile>();//list of last turns orders to prevent oscillating 
 	private Set<Tile> unseenTiles;//map of all unseen tiles
 	private Set<Tile> enemyHills = new HashSet<Tile>();//map of all found enemy hills
+	private Set<Tile> destinations = new HashSet<Tile>();
+	int clear = 0;
 
 	private boolean doMoveDirection(Tile antLoc, Aim direction)
 	{
 		Ants ants = getAnts();
-
 		//Track all movements, prevent collisions
 		Tile newLoc = ants.getTile(antLoc, direction);
-		if(ants.getIlk(newLoc).isUnoccupied() && !orders.containsKey(newLoc))
+		if(ants.getIlk(newLoc).isPassable() && !orders.containsKey(newLoc) && !pastOrders.containsKey(newLoc) && map.contains(newLoc))
 		{
 			ants.issueOrder(antLoc, direction);
 			orders.put(newLoc, antLoc);
@@ -49,7 +53,12 @@ public class MyBot extends Bot
 			return false;
 		}
 	}
-
+	
+	//find efficient path using A*
+	//create data structure of tiles to be check... maybe use unseen tiles and manipulate this data 
+	//get list of neighbors using ants.getIlk(new Tile(interestedTile.getRow/Col +/- )) aka do math to get tiles surrounding interestedTile
+	
+	
 	private boolean doMoveLocation(Tile antLoc, Tile destLoc)
 	{
 		Ants ants = getAnts();
@@ -70,23 +79,52 @@ public class MyBot extends Bot
 	public void doTurn() 
 	{
 		Ants ants = getAnts();
-		orders.clear();
 
-		Map<Tile, Tile> foodTargets = new HashMap<Tile, Tile>();
-
-		// add all locations to unseen tiles set, run once
-		if (unseenTiles == null) 
+		if(map.isEmpty())
 		{
-			unseenTiles = new HashSet<Tile>();
-			for (int row = 0; row < ants.getRows(); row++) 
+			for(int c = 0 ; c < ants.getCols(); c++)
 			{
-				for (int col = 0; col < ants.getCols(); col++) 
+				for(int r = 0; r < ants.getRows(); r++)
 				{
-					unseenTiles.add(new Tile(row, col));
+					if(ants.getIlk(new Tile(r,c)).isPassable())
+					{
+						map.add(new Tile(r, c));
+					}
+					else
+					{
+						map.add(null);
+					}
 				}
 			}
 		}
 		
+		/*switch(clear)
+		{
+		case 0:
+			clear++;
+			break;
+		case 1:
+			clear++;
+			break;
+		case 2:
+			pastOrders.clear();
+			clear = 0;
+			break;
+		default:
+			clear = 0;
+			break;
+		}*/
+		
+		pastOrders.putAll(orders);
+		orders.clear();
+
+
+		// add all locations to unseen tiles set, run once
+		if (unseenTiles == null) 
+		{
+			unseenTiles = new HashSet<Tile>(map);
+		}
+
 		// remove any tiles that can be seen, run each turn
 		for (Iterator<Tile> locIter = unseenTiles.iterator(); locIter.hasNext(); ) 
 		{
@@ -104,6 +142,7 @@ public class MyBot extends Bot
 		}
 
 		// find close food
+		Map<Tile, Tile> foodTargets = new HashMap<Tile, Tile>();
 		List<Route> foodRoutes = new ArrayList<Route>();
 		TreeSet<Tile> sortedFood = new TreeSet<Tile>(ants.getFoodTiles());
 		TreeSet<Tile> sortedAnts = new TreeSet<Tile>(ants.getMyAnts());
@@ -122,77 +161,122 @@ public class MyBot extends Bot
 			if (!foodTargets.containsKey(route.getEnd()) && !foodTargets.containsValue(route.getStart()) && doMoveLocation(route.getStart(), route.getEnd())) 
 			{
 				foodTargets.put(route.getEnd(), route.getStart());
+				doMoveLocation(route.getStart(), route.getEnd());
+			}
+		}		
+
+		// unblock hills
+		for (Tile myHill : ants.getMyHills()) 
+		{
+			if (ants.getMyAnts().contains(myHill) && !orders.containsValue(myHill)) 
+			{
+				for (Aim direction : Aim.values()) 
+				{
+					if (doMoveDirection(myHill, direction)) 
+					{
+						break;
+					}
+				}
 			}
 		}
-		
-		// add new hills to set
-        for (Tile enemyHill : ants.getEnemyHills()) 
-        {
-            if (!enemyHills.contains(enemyHill)) 
-            {
-                enemyHills.add(enemyHill);
-            }
-        }
-        
-        // attack hills
-        List<Route> hillRoutes = new ArrayList<Route>();
-        for (Tile hillLoc : enemyHills) 
-        {
-            for (Tile antLoc : sortedAnts) 
-            {
-                if (!orders.containsValue(antLoc)) 
-                {
-                    int distance = ants.getDistance(antLoc, hillLoc);
-                    Route route = new Route(antLoc, hillLoc, distance);
-                    hillRoutes.add(route);
-                }
-            }
-        }
-        
-        Collections.sort(hillRoutes);
-        for (Route route : hillRoutes) 
-        {
-            doMoveLocation(route.getStart(), route.getEnd());
-        }
 
-		
+		// add new hills to set
+		for (Tile enemyHill : ants.getEnemyHills()) 
+		{
+			if (!enemyHills.contains(enemyHill)) 
+			{
+				enemyHills.add(enemyHill);
+			}
+		}
+
+		//hunt enemy ants
+
+		Set<Tile> targets = new HashSet<Tile>(ants.getEnemyAnts());
+
+		for (Tile location : ants.getMyAnts()) 
+		{
+			boolean issued = false;
+			Tile closestTarget = null;
+			int closestDistance = 999999;
+			for (Tile target : targets) 
+			{
+				int distance = ants.getDistance(location, target);
+				if (distance < closestDistance) 
+				{
+					closestDistance = distance;
+					closestTarget = target;
+				}
+			}
+
+			if (closestTarget != null) 
+			{
+				List<Aim> directions = ants.getDirections(location, closestTarget);
+				Collections.shuffle(directions);
+				for (Aim direction : directions) 
+				{
+					Tile destination = ants.getTile(location, direction);
+					if (ants.getIlk(destination).isUnoccupied() && !destinations.contains(destination)) 
+					{
+						ants.issueOrder(location, direction);
+						destinations.add(destination);
+						issued = true;
+						break;
+					}
+				}
+			}
+
+			if (!issued) 
+			{
+				destinations.add(location);
+			}
+		}
+
+		// attack hills
+		List<Route> hillRoutes = new ArrayList<Route>();
+		for (Tile hillLoc : enemyHills) 
+		{
+			for (Tile antLoc : sortedAnts) 
+			{
+				if (!orders.containsValue(antLoc)) 
+				{
+					int distance = ants.getDistance(antLoc, hillLoc);
+					Route route = new Route(antLoc, hillLoc, distance);
+					hillRoutes.add(route);
+				}
+			}
+		}
+
+		Collections.sort(hillRoutes);
+		for (Route route : hillRoutes) 
+		{
+			doMoveLocation(route.getStart(), route.getEnd());
+		}
+
+
 		// explore unseen areas
-        for (Tile antLoc : sortedAnts) 
-        {
-            if (!orders.containsValue(antLoc)) 
-            {
-                List<Route> unseenRoutes = new ArrayList<Route>();
-                for (Tile unseenLoc : unseenTiles) 
-                {
-                    int distance = ants.getDistance(antLoc, unseenLoc);
-                    Route route = new Route(antLoc, unseenLoc, distance);
-                    unseenRoutes.add(route);
-                }
-                
-                Collections.sort(unseenRoutes);
-                for (Route route : unseenRoutes) 
-                {
-                    if (doMoveLocation(route.getStart(), route.getEnd())) 
-                    {
-                        break;
-                    }
-                }
-            }
-        }
-		
-		 // unblock hills
-        for (Tile myHill : ants.getMyHills()) 
-        {
-            if (ants.getMyAnts().contains(myHill) && !orders.containsValue(myHill)) 
-            {
-                for (Aim direction : Aim.values()) 
-                {
-                    if (doMoveDirection(myHill, direction)) 
-                    {
-                        break;
-                    }
-                }
-            }
-        }
+		for (Tile antLoc : sortedAnts) 
+		{
+			if (!orders.containsValue(antLoc)) 
+			{
+				List<Route> unseenRoutes = new ArrayList<Route>();
+				for (Tile unseenLoc : unseenTiles) 
+				{
+					int distance = ants.getDistance(antLoc, unseenLoc);
+					Route route = new Route(antLoc, unseenLoc, distance);
+					unseenRoutes.add(route);
+				}
+
+				Collections.sort(unseenRoutes);
+				for (Route route : unseenRoutes) 
+				{
+					if (doMoveLocation(route.getStart(), route.getEnd())) 
+					{
+						break;
+					}
+				}
+			}
+		}
+
+		//pastOrders.clear();
 	}
 }
