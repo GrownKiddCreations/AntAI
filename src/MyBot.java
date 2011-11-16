@@ -259,7 +259,7 @@ public class MyBot extends Bot
 
 	private void createOverViewMap(Ants ants) 
 	{
-		//create map of entire playing field land vs water
+		//create map of entire playing field land(valid) vs water(null)
 		if (map == null)
 		{
 			map = new HashSet<Tile>();
