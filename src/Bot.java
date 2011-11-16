@@ -1,7 +1,8 @@
 /**
  * Provides basic game state handling.
  */
-public abstract class Bot extends AbstractSystemInputParser {
+public abstract class Bot extends AbstractSystemInputParser 
+{
     private Ants ants;
     
     /**

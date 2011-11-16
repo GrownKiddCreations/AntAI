@@ -79,24 +79,8 @@ public class MyBot extends Bot
 	public void doTurn() 
 	{
 		Ants ants = getAnts();
-
-		if(map.isEmpty())
-		{
-			for(int c = 0 ; c < ants.getCols(); c++)
-			{
-				for(int r = 0; r < ants.getRows(); r++)
-				{
-					if(ants.getIlk(new Tile(r,c)).isPassable())
-					{
-						map.add(new Tile(r, c));
-					}
-					else
-					{
-						map.add(null);
-					}
-				}
-			}
-		}
+		
+		createOverViewMap(ants);
 		
 		/*switch(clear)
 		{
@@ -117,13 +101,6 @@ public class MyBot extends Bot
 		
 		pastOrders.putAll(orders);
 		orders.clear();
-
-
-		// add all locations to unseen tiles set, run once
-		if (unseenTiles == null) 
-		{
-			unseenTiles = new HashSet<Tile>(map);
-		}
 
 		// remove any tiles that can be seen, run each turn
 		for (Iterator<Tile> locIter = unseenTiles.iterator(); locIter.hasNext(); ) 
@@ -278,5 +255,38 @@ public class MyBot extends Bot
 		}
 
 		//pastOrders.clear();
+	}
+
+	private void createOverViewMap(Ants ants) 
+	{
+		//create map of entire playing field land vs water
+		if (map == null)
+		{
+			map = new HashSet<Tile>();
+		}
+		else if((map != null) && (map.isEmpty()))
+		{
+			for(int c = 0 ; c < ants.getCols(); c++)
+			{
+				for(int r = 0; r < ants.getRows(); r++)
+				{
+					if(ants.getIlk(new Tile(r,c)).isPassable())
+					{
+						map.add(new Tile(r, c));
+					}
+					else
+					{
+						map.add(null);
+					}
+				}
+			}
+		}
+		
+		// add all locations to unseen tiles set, run once
+				if (unseenTiles == null) 
+				{
+					unseenTiles = new HashSet<Tile>(map);
+				}
+
 	}
 }
