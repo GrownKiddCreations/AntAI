@@ -53,12 +53,12 @@ public class MyBot extends Bot
 			return false;
 		}
 	}
-	
+
 	//find efficient path using A*
-	//create data structure of tiles to be check... maybe use unseen tiles and manipulate this data 
+	//create data structure of tiles to be checked... maybe use unseen tiles and manipulate this data 
 	//get list of neighbors using ants.getIlk(new Tile(interestedTile.getRow/Col +/- )) aka do math to get tiles surrounding interestedTile
-	
-	
+
+
 	private boolean doMoveLocation(Tile antLoc, Tile destLoc)
 	{
 		Ants ants = getAnts();
@@ -79,9 +79,9 @@ public class MyBot extends Bot
 	public void doTurn() 
 	{
 		Ants ants = getAnts();
-		
+
 		createOverViewMap(ants);
-		
+
 		/*switch(clear)
 		{
 		case 0:
@@ -98,17 +98,20 @@ public class MyBot extends Bot
 			clear = 0;
 			break;
 		}*/
-		
+
 		pastOrders.putAll(orders);
 		orders.clear();
 
-		// remove any tiles that can be seen, run each turn
-		for (Iterator<Tile> locIter = unseenTiles.iterator(); locIter.hasNext(); ) 
+		if((unseenTiles != null)&&(!unseenTiles.isEmpty()))
 		{
-			Tile next = locIter.next();
-			if (ants.isVisible(next)) 
+			// remove any tiles that can be seen, run each turn
+			for (Iterator<Tile> locIter = unseenTiles.iterator(); locIter.hasNext(); ) 
 			{
-				locIter.remove();
+				Tile next = locIter.next();
+				if (ants.isVisible(next)) 
+				{
+					locIter.remove();
+				}
 			}
 		}
 
@@ -119,10 +122,28 @@ public class MyBot extends Bot
 		}
 
 		// find close food
-		Map<Tile, Tile> foodTargets = new HashMap<Tile, Tile>();
-		List<Route> foodRoutes = new ArrayList<Route>();
 		TreeSet<Tile> sortedFood = new TreeSet<Tile>(ants.getFoodTiles());
 		TreeSet<Tile> sortedAnts = new TreeSet<Tile>(ants.getMyAnts());
+
+		gatherFood(sortedFood, sortedAnts, ants);
+
+		unblockFriendlyHills(ants);
+
+		attackEnemyHills(sortedAnts, ants);
+
+		exploreNewTerritory(sortedAnts, ants);
+
+		huntEnemyAnts(ants);
+
+
+		//pastOrders.clear();
+	}
+
+	private void gatherFood(TreeSet<Tile> sortedFood, TreeSet<Tile> sortedAnts, Ants ants) 
+	{
+		Map<Tile, Tile> foodTargets = new HashMap<Tile, Tile>();
+		List<Route> foodRoutes = new ArrayList<Route>();
+
 		for (Tile foodLoc : sortedFood) 
 		{
 			for (Tile antLoc : sortedAnts) 
@@ -141,7 +162,10 @@ public class MyBot extends Bot
 				doMoveLocation(route.getStart(), route.getEnd());
 			}
 		}		
+	}
 
+	private void unblockFriendlyHills(Ants ants) 
+	{
 		// unblock hills
 		for (Tile myHill : ants.getMyHills()) 
 		{
@@ -156,7 +180,10 @@ public class MyBot extends Bot
 				}
 			}
 		}
+	}
 
+	private void attackEnemyHills(TreeSet<Tile> sortedAnts, Ants ants) 
+	{
 		// add new hills to set
 		for (Tile enemyHill : ants.getEnemyHills()) 
 		{
@@ -166,6 +193,30 @@ public class MyBot extends Bot
 			}
 		}
 
+		// attack hills
+		List<Route> hillRoutes = new ArrayList<Route>();
+		for (Tile hillLoc : enemyHills) 
+		{
+			for (Tile antLoc : sortedAnts) 
+			{
+				if (!orders.containsValue(antLoc)) 
+				{
+					int distance = ants.getDistance(antLoc, hillLoc);
+					Route route = new Route(antLoc, hillLoc, distance);
+					hillRoutes.add(route);
+				}
+			}
+		}
+
+		Collections.sort(hillRoutes);
+		for (Route route : hillRoutes) 
+		{
+			doMoveLocation(route.getStart(), route.getEnd());
+		}
+	}
+
+	private void huntEnemyAnts(Ants ants)
+	{
 		//hunt enemy ants
 
 		Set<Tile> targets = new HashSet<Tile>(ants.getEnemyAnts());
@@ -207,29 +258,10 @@ public class MyBot extends Bot
 				destinations.add(location);
 			}
 		}
+	}
 
-		// attack hills
-		List<Route> hillRoutes = new ArrayList<Route>();
-		for (Tile hillLoc : enemyHills) 
-		{
-			for (Tile antLoc : sortedAnts) 
-			{
-				if (!orders.containsValue(antLoc)) 
-				{
-					int distance = ants.getDistance(antLoc, hillLoc);
-					Route route = new Route(antLoc, hillLoc, distance);
-					hillRoutes.add(route);
-				}
-			}
-		}
-
-		Collections.sort(hillRoutes);
-		for (Route route : hillRoutes) 
-		{
-			doMoveLocation(route.getStart(), route.getEnd());
-		}
-
-
+	private void exploreNewTerritory(TreeSet<Tile> sortedAnts, Ants ants) 
+	{
 		// explore unseen areas
 		for (Tile antLoc : sortedAnts) 
 		{
@@ -253,11 +285,10 @@ public class MyBot extends Bot
 				}
 			}
 		}
-
-		//pastOrders.clear();
 	}
 
-	private void createOverViewMap(Ants ants) 
+	//this code is only run once at the beginning of the match
+	private void createOverViewMap(Ants ants)
 	{
 		//create map of entire playing field land(valid) vs water(null)
 		if (map == null)
@@ -281,12 +312,12 @@ public class MyBot extends Bot
 				}
 			}
 		}
-		
+
 		// add all locations to unseen tiles set, run once
-				if (unseenTiles == null) 
-				{
-					unseenTiles = new HashSet<Tile>(map);
-				}
+		if (unseenTiles == null) 
+		{
+			unseenTiles = new HashSet<Tile>(map);
+		}
 
 	}
 }
