@@ -1,5 +1,4 @@
 import java.io.IOException;
-import java.io.ObjectInputStream.GetField;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -10,9 +9,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
-/**
- * Starter bot implementation.
- */
 public class MyBot extends Bot 
 {
 	private Set<Tile> map = new HashSet<Tile>();
@@ -31,7 +27,7 @@ public class MyBot extends Bot
 
 	//initiate some variables
 	private Map<Tile,Tile> orders = new HashMap<Tile, Tile>();//set of orders given to prevent ants moving to same tile
-	private Map<Tile,Tile> pastOrders = new HashMap<Tile, Tile>();//list of last turns orders to prevent oscillating 
+	//private Map<Tile,Tile> pastOrders = new HashMap<Tile, Tile>();//list of last turns orders to prevent oscillating 
 	private Set<Tile> unseenTiles;//map of all unseen tiles
 	private Set<Tile> enemyHills = new HashSet<Tile>();//map of all found enemy hills
 	private Set<Tile> destinations = new HashSet<Tile>();
@@ -42,7 +38,7 @@ public class MyBot extends Bot
 		Ants ants = getAnts();
 		//Track all movements, prevent collisions
 		Tile newLoc = ants.getTile(antLoc, direction);
-		if(ants.getIlk(newLoc).isPassable() && !orders.containsKey(newLoc) && !pastOrders.containsKey(newLoc) && map.contains(newLoc))
+		if(ants.getIlk(newLoc).isPassable() && !orders.containsKey(newLoc))// && !pastOrders.containsKey(newLoc) && map.contains(newLoc))
 		{
 			ants.issueOrder(antLoc, direction);
 			orders.put(newLoc, antLoc);
@@ -99,7 +95,7 @@ public class MyBot extends Bot
 			break;
 		}*/
 
-		pastOrders.putAll(orders);
+		//pastOrders.putAll(orders);
 		orders.clear();
 
 		if((unseenTiles != null)&&(!unseenTiles.isEmpty()))
@@ -129,9 +125,9 @@ public class MyBot extends Bot
 
 		unblockFriendlyHills(ants);
 
-		attackEnemyHills(sortedAnts, ants);
-
 		exploreNewTerritory(sortedAnts, ants);
+		
+		attackEnemyHills(sortedAnts, ants);
 
 		huntEnemyAnts(ants);
 
@@ -141,7 +137,8 @@ public class MyBot extends Bot
 
 	private void gatherFood(TreeSet<Tile> sortedFood, TreeSet<Tile> sortedAnts, Ants ants) 
 	{
-		Map<Tile, Tile> foodTargets = new HashMap<Tile, Tile>();
+		//Map<Tile, Tile> foodTargets = new HashMap<Tile, Tile>();
+		Set<Node> foodTargets = new HashSet<Node>();
 		List<Route> foodRoutes = new ArrayList<Route>();
 
 		for (Tile foodLoc : sortedFood) 
@@ -149,16 +146,22 @@ public class MyBot extends Bot
 			for (Tile antLoc : sortedAnts) 
 			{
 				int distance = ants.getDistance(antLoc, foodLoc);
-				Route route = new Route(antLoc, foodLoc, distance);
+				
+				//Node foodNode = new Node(foodLoc);
+				//Node antNode = new Node(antLoc);
+				AstarSearch path = new AstarSearch(antLoc, foodLoc);
+				Tile nextMove = path.assessRoute(new Node(antLoc));
+				Route route = new Route(antLoc, nextMove, distance);
 				foodRoutes.add(route);
 			}
 		}
+		
 		Collections.sort(foodRoutes);
 		for (Route route : foodRoutes) 
 		{
-			if (!foodTargets.containsKey(route.getEnd()) && !foodTargets.containsValue(route.getStart()) && doMoveLocation(route.getStart(), route.getEnd())) 
+			if (/*!foodTargets.contains(route.getEnd()) && !foodTargets.contains(route.getStart()) && */doMoveLocation(route.getStart(), route.getEnd())) 
 			{
-				foodTargets.put(route.getEnd(), route.getStart());
+				//foodTargets.put(route.getEnd(), route.getStart());
 				doMoveLocation(route.getStart(), route.getEnd());
 			}
 		}		

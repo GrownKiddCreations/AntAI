@@ -4,5 +4,6 @@
 .settings
 .prefs
 .metadata
+.packages
 bin
 gen

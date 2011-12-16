@@ -3,10 +3,15 @@
 /*	pseudo-code for a* 
  * 
  * 
- * create the open list of nodes, initially containing only our starting node
-   create the closed list of nodes, initially empty
-   while (we have not reached our goal) {
-       consider the best node in the open list (the node with the lowest f value)
+ 	//create the open list of nodes, initially containing only our starting node
+ 	List<Tile> searchableTiles = new ArrayList<Tile>(startingLoc);
+   	//create the closed list of nodes, initially empty
+   	List<Tile> closedList = new ArrayList<Tile>();
+   
+   while (startingLoc != currentLoc) 
+   {
+       //consider the best node in the open list (the node with the lowest f value)
+       
        if (this node is the goal) {
            then we're done
        }
