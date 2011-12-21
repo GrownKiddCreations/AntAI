@@ -149,8 +149,16 @@ public class MyBot extends Bot
 				
 				//Node foodNode = new Node(foodLoc);
 				//Node antNode = new Node(antLoc);
-				AstarSearch path = new AstarSearch(antLoc, foodLoc);
-				Tile nextMove = path.assessRoute(new Node(antLoc));
+				Tile nextMove = null;
+				try
+				{
+				AstarSearch path = new AstarSearch(antLoc, foodLoc, ants);
+				nextMove = path.assessRoute(new Node(antLoc, ants));
+				}
+				catch(OutOfMemoryError e)
+				{
+					e.printStackTrace();
+				}
 				Route route = new Route(antLoc, nextMove, distance);
 				foodRoutes.add(route);
 			}

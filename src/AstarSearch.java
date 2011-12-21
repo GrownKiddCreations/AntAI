@@ -6,11 +6,13 @@ public class AstarSearch
 {
 	Node startingTile, goalTile, nextLoc;
 	List<Node> tobeSearched, fullySearched;
+	Ants ants;
 
-	public AstarSearch(Tile start, Tile end)
+	public AstarSearch(Tile start, Tile end, Ants ants)
 	{
-		startingTile = new Node(start);
-		goalTile = new Node(end);
+		this.ants = ants;
+		startingTile = new Node(start, ants);
+		goalTile = new Node(end, ants);
 
 		tobeSearched = new ArrayList<Node>();
 		tobeSearched.add(startingTile);
@@ -28,7 +30,7 @@ public class AstarSearch
 
 	public Tile assessRoute(Node interestedNode)
 	{
-		while(!interestedNode.getTile().equals(goalTile.getTile()))
+		while(!interestedNode.getTile().equals(goalTile.getTile())&&interestedNode != null)
 		{
 			interestedNode.setH(Math.abs(startingTile.getX()-goalTile.getX()) + Math.abs(startingTile.getY()-goalTile.getY()));//the estimated(heuristic) cost to reach the destination from here.
 			interestedNode.setG(interestedNode.getG()+1);//the exact cost to reach this node from the starting node.
@@ -52,23 +54,29 @@ public class AstarSearch
 				fullySearched = new ArrayList<Node>();
 			}
 
+			List<Node> toBeDeleted = new ArrayList<Node>();//temp node to prevent ConcurrentMod error
+
 			fullySearched.add(nextLoc);//add nextLoc to list of already searched tiles
 
 			if(tobeSearched.contains(nextLoc))//remove tile from list to be searched
 			{
-				tobeSearched.remove(nextLoc);
+				toBeDeleted.add(nextLoc);
 			}
+			
+			for(Node delete : toBeDeleted)
+			{
+				tobeSearched.remove(delete);
+			}
+			
+			toBeDeleted.clear();
 
 			for(Tile neighbor : nextLoc.getNeighbors())
 			{
-				Node temp = new Node(neighbor);
+				Node temp = new Node(neighbor, ants);
 				temp.setPreviousNode(nextLoc);
 				tobeSearched.add(temp);
 			}
 
-			List<Node> toBeDeleted = new ArrayList<Node>();//temp node to prevent ConcurrentMod error
-
-			//TODO find heap overflow error
 			for(Node test : tobeSearched)
 			{
 				if(test.getF() < nextLoc.getF())
